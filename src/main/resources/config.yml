@@ -1,0 +1,113 @@
+# NexusGate configuration.
+
+# The passwords themselves live right here, in plain text, on purpose -- type one in, save the
+# file, and it takes effect on the very next join/login attempt (no reload or restart needed).
+# You can also set/change either one with /nexusgate setpassword java|bedrock <password>, which
+# just edits these same two lines for you. Leave one blank to leave that platform unguarded.
+passwords:
+  java: "5801"
+  bedrock: "2981"
+
+settings:
+  # How long (seconds) a player has to type /login <password> before being kicked.
+  timeout-seconds: 60
+  # Wrong passwords allowed before the player is kicked and the IP is locked out.
+  max-attempts: 3
+  # If true, players with OP are still forced through the gate like everyone else.
+  # Recommended to leave this false (i.e. ops NOT exempt) unless you trust your
+  # own account being compromised is a non-issue.
+  exempt-operators: false
+  # Since v0.2.0, Bedrock/Xbox players are gated too -- with their OWN separate password (set
+  # via /nexusgate setpassword bedrock <password>), independent of the Java one. Set this to
+  # true if you'd rather go back to the old v0.1.0 behavior and let Bedrock/Xbox players skip
+  # the gate entirely (detected via Floodgate, or a UUID-version fallback if Floodgate isn't
+  # installed). NOTE: if you're upgrading from v0.1.0, your existing config.yml already has
+  # this set to "true" on disk from before -- change it to "false" here if you actually want
+  # Bedrock/Xbox players gated now, then set their password.
+  exempt-bedrock: false
+  # UUIDs (with dashes) that always skip the gate, e.g. your own admin accounts.
+  # Anyone with the nexusgate.bypass permission also skips it automatically.
+  trusted-uuids: []
+
+# Escalating lockout durations (seconds) applied to an IP after it fails the
+# gate (3 wrong passwords, or a timeout). 1st offense uses the 1st value, 2nd
+# offense the 2nd value, etc.; stays at the last value after that. Lockouts
+# are checked before the player even finishes connecting. Reset on server
+# restart (in-memory only).
+# NOTE: this is keyed by IP, not by player. If two different people play from
+# the same house/router (same public IP), one of them failing the password
+# enough times locks out BOTH of them for the cooldown -- this can look like
+# "my friend can't connect" even though they typed nothing wrong themselves.
+# Check auth-log.txt for a LOCKOUT-REJECT line on that IP if that happens.
+lockout:
+  durations-seconds: [120, 300, 900, 1800, 3600]
+
+# What happens when a brand-new account connects from an IP that's also in a currently-banned
+# player's IP history (built from every successful login, see the v0.4.0/v0.5.0 changelog
+# entries). "watch" only alerts nexusgate.watch holders and logs it (ALT-ALERT) -- the safe
+# default, since a shared IP can just as easily be an innocent shared house/router/dorm as an
+# actual alt account. "autoban" REJECTS the connection immediately and auto-bans the new account
+# (and, if ban-ip-too is true, the IP itself too) with no human involved -- set here to "autoban"
+# by explicit request to run this server as aggressively as possible. Every auto-ban is still
+# alerted live and logged as AUTOBAN in auth-log.txt so a false positive (two people who
+# genuinely share a connection) can be reversed in one command: /nexusgate unban <player> and,
+# if it was also IP-banned, /nexusgate unbanip <ip>. Set mode back to "watch" here and run
+# /nexusgate reload any time you want the safer, human-reviewed behavior instead.
+alt-detection:
+  mode: "autoban"
+  ban-ip-too: true
+
+# Temporary, expiring, limited-use "invite codes" -- a second, independent way in besides the
+# shared password above. Create one with /nexusgate invite [uses] [minutes] [note], hand the
+# code to ONE person; anyone who types it at /login gets in exactly like the real password would,
+# but it burns out on its own (time and/or use-count) and every use is recorded (who, when, from
+# what IP -- see /nexusgate inviteinfo <code>).
+#
+# This is the answer to "what if the password leaks": instead of having to change the real
+# password for every legitimate player, hand out invite codes for anyone who isn't already a
+# known regular. If a code leaks, /nexusgate revokeinvite <code> kills just that one code, or
+# /nexusgate ban <player> removes just the specific account that used it -- either way, the real
+# password and every other invite code (and everyone else's access) are completely untouched.
+invites:
+  # Master on/off switch. false = /login never accepts an invite code at all (existing codes in
+  # invites.yml are just inert, not deleted), and /nexusgate invite refuses to create new ones.
+  enabled: true
+  # Defaults used when /nexusgate invite is run without explicit [uses]/[minutes] arguments.
+  default-uses: 1
+  default-minutes: 60
+  # Safety caps -- /nexusgate invite silently clamps to these even if you ask for more, so a
+  # fat-fingered "invite 1 100000" can't accidentally create a near-permanent extra password.
+  max-minutes: 10080   # 7 days
+  max-uses-cap: 25
+
+# Permanent, per-player "personal codes" -- built on the exact same invites.yml machinery as the
+# temporary codes above, but permanent (never expires, unlimited uses) and locked to whichever
+# account types it FIRST. Issue one with /nexusgate personalcode <playerName> before a new player
+# has even joined, and hand it to them directly (Discord, text, whatever) -- once they use it, it's
+# their own permanent password from then on, and nobody else's use of that same string will ever
+# work again, even if it leaks afterward. See /nexusgate personalcode / personalrotate /
+# personalremove / personalinfo. Governed by the same invites.enabled switch above -- if invite
+# codes are off, personal codes don't work at /login either, since both are checked the same way.
+messages:
+  gate-title: "&c&lLOCKED"
+  gate-subtitle: "&fType /login <password>"
+  gate-chat: "&cThis server requires a password to play. Type &f/login <password>&c within &f{timeout}s&c."
+  wrong-password: "&cWrong password. &f{remaining}&c attempt(s) remaining."
+  success: "&aPassword accepted. Welcome!"
+  invite-accepted: "&aInvite code accepted. Welcome!"
+  personal-code-claimed: "&dThat's now your own permanent password -- it's locked to just your account from here on. Welcome!"
+  team-code-announce: "&aYour team's password is: &e&l{code}&a. Use it at &f/login&a to get in -- keep it inside your team."
+  timeout-kick: "&cYou took too long to authenticate."
+  too-many-attempts-kick: "&cToo many wrong passwords."
+  locked-out-kick: "&cToo many failed attempts from your connection. Try again in {remaining}."
+  no-password-configured-warning: "[NexusGate] No {kind} password is set! Run /nexusgate setpassword {kind} <password> (from console) or the gate does nothing for that platform. Players are joining unguarded right now."
+  not-pending: "&7You're already authenticated."
+  usage-login: "&cUsage: /login <password>"
+  must-authenticate-first: "&cYou must authenticate first. Type &f/login <password>"
+  banned-kick: "&cYou are banned from using this server's password. Reason: &f{reason}"
+  ip-banned-kick: "&cYour connection is banned from this server. Reason: &f{reason}"
+
+logging:
+  enabled: true
+  # Path is relative to the plugin's own data folder (plugins/NexusGate/).
+  file: "auth-log.txt"
